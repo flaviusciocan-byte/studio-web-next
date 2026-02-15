@@ -1,0 +1,228 @@
+/* =========================
+   ZARIA Pro UI (Enterprise Dark)
+   Append-only: safe to paste at EOF
+   ========================= */
+
+:root {
+  --zaria-bg: #07070a;
+  --zaria-panel: rgba(255,255,255,0.03);
+  --zaria-panel-2: rgba(255,255,255,0.05);
+  --zaria-border: rgba(255,255,255,0.08);
+  --zaria-text: rgba(255,255,255,0.92);
+  --zaria-text-muted: rgba(255,255,255,0.62);
+  --zaria-gold: #d6b46a;
+  --zaria-gold-2: #b89449;
+  --zaria-danger: #f97316;
+  --zaria-radius: 16px;
+  --zaria-shadow: 0 20px 60px rgba(0,0,0,0.55);
+}
+
+html, body {
+  background: radial-gradient(1200px 800px at 50% 20%, rgba(214,180,106,0.08), transparent 55%),
+              radial-gradient(900px 600px at 20% 10%, rgba(124,58,237,0.10), transparent 50%),
+              var(--zaria-bg);
+  color: var(--zaria-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* Page container */
+main {
+  width: 100%;
+}
+
+.zaria-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 18px 56px;
+}
+
+/* Top bar */
+.zaria-topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border: 1px solid var(--zaria-border);
+  border-radius: calc(var(--zaria-radius) + 6px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  box-shadow: var(--zaria-shadow);
+}
+
+.zaria-brand {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.zaria-nav {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Buttons */
+.zaria-btn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--zaria-border);
+  background: rgba(255,255,255,0.03);
+  color: var(--zaria-text);
+  font-weight: 560;
+  letter-spacing: 0.1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zaria-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.zaria-btn-primary {
+  border-color: rgba(214,180,106,0.35);
+  background: linear-gradient(180deg, rgba(214,180,106,0.22), rgba(214,180,106,0.12));
+}
+
+.zaria-btn-primary:hover {
+  background: linear-gradient(180deg, rgba(214,180,106,0.30), rgba(214,180,106,0.16));
+}
+
+.zaria-btn-danger {
+  border-color: rgba(249,115,22,0.35);
+  background: linear-gradient(180deg, rgba(249,115,22,0.22), rgba(249,115,22,0.10));
+}
+
+.zaria-btn-danger:hover {
+  background: linear-gradient(180deg, rgba(249,115,22,0.30), rgba(249,115,22,0.14));
+}
+
+/* Badges */
+.zaria-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.35px;
+  border: 1px solid var(--zaria-border);
+  background: rgba(255,255,255,0.03);
+  color: var(--zaria-text-muted);
+}
+
+.zaria-badge.free {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.zaria-badge.premium {
+  border-color: rgba(214,180,106,0.40);
+  color: rgba(214,180,106,0.95);
+}
+
+/* Card */
+.zaria-card {
+  border: 1px solid var(--zaria-border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+  border-radius: calc(var(--zaria-radius) + 6px);
+  box-shadow: var(--zaria-shadow);
+}
+
+.zaria-card-inner {
+  padding: 20px;
+}
+
+.zaria-kicker {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--zaria-text-muted);
+  margin-bottom: 6px;
+}
+
+.zaria-h1 {
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 720;
+  margin: 0;
+}
+
+.zaria-muted {
+  color: var(--zaria-text-muted);
+}
+
+/* Layout helpers for module page */
+.zaria-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--zaria-border);
+}
+
+.zaria-module-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zaria-module-body {
+  padding: 18px 20px;
+}
+
+.zaria-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Hero (landing) polish */
+.zaria-hero {
+  margin-top: 18px;
+  padding: 44px 26px;
+  text-align: center;
+}
+
+.zaria-hero h1 {
+  margin: 10px 0 0;
+  font-size: 44px;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.zaria-hero p {
+  margin: 16px auto 0;
+  max-width: 780px;
+  color: var(--zaria-text-muted);
+  font-size: 16px;
+}
+
+.zaria-pillrow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.zaria-pill {
+  border: 1px solid var(--zaria-border);
+  background: rgba(255,255,255,0.03);
+  color: var(--zaria-text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* Small screen */
+@media (max-width: 640px) {
+  .zaria-hero h1 { font-size: 34px; }
+  .zaria-topbar { height: auto; padding: 12px 14px; gap: 10px; flex-direction: column; align-items: flex-start; }
+}
