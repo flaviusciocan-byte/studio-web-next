@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZARIA Builder - Text Edition
 
-## Getting Started
+API-first, modular platform that transforms source text into premium digital products (PDF, EPUB, DOCX, bundles) with AD/PM/ESI-driven layout adaptation.
 
-First, run the development server:
+## Architecture
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- `apps/api`: Express API Gateway + Processing Layer + Export Engine + Template Engine + Spine Integration.
+- `apps/web`: React + Tailwind UI (editor, template gallery, preview, export panel, Spine indicators).
+- `packages/shared`: Cross-package types, schemas, and Spine profile logic.
+- `docs`: API and deployment documentation.
+
+## Folder Structure
+
+```text
+.
+├── apps
+│   ├── api
+│   │   ├── openapi
+│   │   │   └── openapi.yaml
+│   │   ├── prisma
+│   │   │   ├── schema.prisma
+│   │   │   └── seed.ts
+│   │   ├── src
+│   │   │   ├── config
+│   │   │   ├── middleware
+│   │   │   ├── modules
+│   │   │   │   ├── auth
+│   │   │   │   ├── documents
+│   │   │   │   ├── exports
+│   │   │   │   ├── health
+│   │   │   │   ├── spine
+│   │   │   │   ├── templates
+│   │   │   │   └── webhooks
+│   │   │   ├── services
+│   │   │   │   ├── export
+│   │   │   │   ├── processing
+│   │   │   │   ├── spine
+│   │   │   │   └── template
+│   │   │   ├── types
+│   │   │   ├── utils
+│   │   │   ├── app.ts
+│   │   │   └── index.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── web
+│       ├── src
+│       │   ├── api
+│       │   ├── components
+│       │   ├── features
+│       │   │   ├── auth
+│       │   │   ├── editor
+│       │   │   ├── exports
+│       │   │   ├── preview
+│       │   │   ├── spine
+│       │   │   └── templates
+│       │   ├── layout
+│       │   ├── styles
+│       │   ├── App.tsx
+│       │   └── main.tsx
+│       ├── index.html
+│       ├── package.json
+│       ├── postcss.config.cjs
+│       ├── tailwind.config.ts
+│       ├── tsconfig.json
+│       └── vite.config.ts
+├── packages
+│   └── shared
+│       ├── src
+│       │   ├── index.ts
+│       │   ├── spine.ts
+│       │   ├── types.ts
+│       │   └── validation.ts
+│       ├── package.json
+│       └── tsconfig.json
+├── docs
+│   ├── api-reference.md
+│   └── deployment.md
+├── docker-compose.yml
+├── package.json
+├── tsconfig.base.json
+└── .env.example
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Core Modules
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Input Layer
+- Raw/structured/imported/copywriter input support (`/v1/documents`, `/v1/documents/import`).
+- Strong schema validation using `zod` shared contracts.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Processing Layer
+- Text normalization
+- Chapter detection and heading hierarchy
+- Metadata extraction
+- TOC generation
+- Spine-adaptive layout hints
 
-## Learn More
+### Export Engine
+- PDF (vector-based via `pdf-lib`)
+- EPUB 3 (valid package + nav + OPF)
+- DOCX (OpenXML via `docx`)
+- Bundle ZIP with manifest and checksums
 
-To learn more about Next.js, take a look at the following resources:
+### Template System
+- ZARIA Ultra-Premium system templates
+- Typography and palette specifications
+- Cover/page style adaptation
+- White-purple-gold-only design tokens
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### API Gateway
+- Express REST endpoints
+- JWT/API key authentication
+- Rate limiting
+- Multi-tenant enforcement by tenant context
+- Webhooks with HMAC signature
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Continuity Layer
+- Legacy-compatible endpoints under `/api/*` for module toggles, memory search, and transformation compatibility.
+- Tenant feature-flag controls under `/v1/tenants/*`.
+- Existing legacy folders (`app/`, `convex/`, and related files) are preserved to maintain continuity with prior system assets.
 
-## Deploy on Vercel
+### Spine Integration
+- Global metrics: AD, PM, ESI
+- Layout profile adaptation for all exports
+- Score and guidance endpoint (`/v1/spine/evaluate`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Run
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm install
+cp .env.example .env
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed -w @zaria/api
+npm run dev
+```
+
+## API Docs
+- Human guide: `docs/api-reference.md`
+- OpenAPI: `apps/api/openapi/openapi.yaml`
+- Served file: `GET /v1/openapi/openapi.yaml`
+
+## Deployment
+- Full guide: `docs/deployment.md`
+- Optional local stack: `docker-compose up --build`

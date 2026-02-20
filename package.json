@@ -1,12 +1,22 @@
 {
-  "name": "studio-web-next",
-  "version": "0.1.0",
+  "name": "zaria-builder-text-edition",
+  "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "concurrently -n api,web -c magenta,yellow \"npm run dev -w @zaria/api\" \"npm run dev -w @zaria/web\"",
+    "dev:legacy": "next dev",
+    "build": "npm run build -w @zaria/shared && npm run build -w @zaria/api && npm run build -w @zaria/web",
+    "build:legacy": "next build",
+    "start:legacy": "next start",
+    "lint": "npm run lint -ws",
+    "lint:legacy": "eslint",
+    "typecheck": "npm run typecheck -ws",
+    "prisma:generate": "npm run prisma:generate -w @zaria/api",
+    "prisma:migrate": "npm run prisma:migrate -w @zaria/api"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
@@ -20,9 +30,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

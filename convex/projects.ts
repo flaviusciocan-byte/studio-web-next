@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 
 export const createProject = mutation({
@@ -86,8 +87,8 @@ export const exportProjectJson = query({
           ctx.db
             .query("components")
             .withIndex("by_page", (q) => q.eq("pageId", page._id))
-            .collect()
-        )
+            .collect(),
+        ),
       )
     ).flat();
 
@@ -110,13 +111,14 @@ export const importProjectJson = mutation({
       pages?: Array<Record<string, unknown>>;
       components?: Array<Record<string, unknown>>;
     };
+
     try {
       parsed = JSON.parse(args.payload) as {
         project?: Record<string, unknown>;
         pages?: Array<Record<string, unknown>>;
         components?: Array<Record<string, unknown>>;
       };
-    } catch (error) {
+    } catch {
       throw new Error("Invalid JSON payload");
     }
 
@@ -134,6 +136,7 @@ export const importProjectJson = mutation({
     const project = parsed.project as {
       name?: string;
     };
+
     const projectId = await ctx.db.insert("projects", {
       name: `${project.name ?? "Project"} (imported)`,
       ownerId: args.actorId,
@@ -141,8 +144,9 @@ export const importProjectJson = mutation({
       createdAt: now,
     });
 
-    const pageIdMap = new Map<string, string>();
-    const getKey = (value: unknown) => {
+    const pageIdMap = new Map<string, Id<"pages">>();
+
+    const toKey = (value: unknown) => {
       if (typeof value === "string") return value;
       if (value && typeof (value as { toString: () => string }).toString === "function") {
         return (value as { toString: () => string }).toString();
@@ -160,6 +164,7 @@ export const importProjectJson = mutation({
         version?: string;
         createdAt?: number;
       };
+
       const newPageId = await ctx.db.insert("pages", {
         logicalId: pageRecord.logicalId ?? "",
         projectId,
@@ -168,7 +173,8 @@ export const importProjectJson = mutation({
         version: pageRecord.version ?? "v1",
         createdAt: pageRecord.createdAt ?? now,
       });
-      const key = getKey(pageRecord._id ?? pageRecord.id ?? pageRecord.logicalId ?? "");
+
+      const key = toKey(pageRecord._id ?? pageRecord.id ?? pageRecord.logicalId ?? "");
       if (key) {
         pageIdMap.set(key, newPageId);
       }
@@ -183,11 +189,13 @@ export const importProjectJson = mutation({
         order?: number;
         createdAt?: number;
       };
-      const pageKey = getKey(componentRecord.pageId);
+
+      const pageKey = toKey(componentRecord.pageId);
       const mappedPageId = pageIdMap.get(pageKey);
       if (!mappedPageId) {
         throw new Error("Invalid component page reference");
       }
+
       await ctx.db.insert("components", {
         logicalId: componentRecord.logicalId ?? "",
         pageId: mappedPageId,
@@ -232,12 +240,13 @@ export const duplicateProject = mutation({
           ctx.db
             .query("components")
             .withIndex("by_page", (q) => q.eq("pageId", page._id))
-            .collect()
-        )
+            .collect(),
+        ),
       )
     ).flat();
 
     const now = Date.now();
+
     const newProjectId = await ctx.db.insert("projects", {
       name: `${project.name} (copy)`,
       ownerId: args.actorId,
@@ -245,7 +254,7 @@ export const duplicateProject = mutation({
       createdAt: now,
     });
 
-    const pageIdMap = new Map<string, string>();
+    const pageIdMap = new Map<string, Id<"pages">>();
     for (const page of pages) {
       const newPageId = await ctx.db.insert("pages", {
         logicalId: page.logicalId,
@@ -263,6 +272,7 @@ export const duplicateProject = mutation({
       if (!mappedPageId) {
         throw new Error("Invalid component page reference");
       }
+
       await ctx.db.insert("components", {
         logicalId: component.logicalId,
         pageId: mappedPageId,

@@ -1,80 +1,106 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@libsql/client";
+import { createClient, type Client } from "@libsql/client";
+import { cohereEmbedding } from "@/app/lib/memory/embeddings";
 
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN!,
-});
+type MemorySearchBody = {
+  query?: unknown;
+  scope?: unknown;
+  scopeId?: unknown;
+  topK?: unknown;
+};
 
-async function cohereQueryEmbedding(text: string): Promise<Float32Array> {
-  const res = await fetch("https://api.cohere.com/v1/embed", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "embed-english-v3.0",
-      texts: [text],
-      input_type: "search_query",
-    }),
-  });
+type MemoryRow = {
+  id: unknown;
+  kind: unknown;
+  content: unknown;
+  created_at: unknown;
+  embedding: unknown;
+};
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Cohere embed failed: ${res.status} ${err}`);
+type ScoredResult = {
+  id: string;
+  kind: string;
+  content: string;
+  createdAt: string;
+  score: number;
+};
+
+function getClient(): Client | null {
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!url || !authToken) {
+    return null;
   }
 
-  const data = await res.json();
-  return Float32Array.from(data.embeddings[0]);
+  return createClient({ url, authToken });
 }
 
-function bytesToF32(buf: Uint8Array): Float32Array {
-  // libsql returns BLOB as Uint8Array
-  return new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4));
+function parseTopK(value: unknown): number {
+  const parsed = Number(value ?? 5);
+  if (!Number.isFinite(parsed)) return 5;
+  return Math.max(1, Math.min(50, Math.trunc(parsed)));
 }
 
-function cosine(a: Float32Array, b: Float32Array): number {
+function bytesToFloat32(buffer: Uint8Array): Float32Array {
+  return new Float32Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    Math.floor(buffer.byteLength / 4),
+  );
+}
+
+function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   const n = Math.min(a.length, b.length);
   let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < n; i++) {
-    const x = a[i];
-    const y = b[i];
+  let normA = 0;
+  let normB = 0;
+
+  for (let index = 0; index < n; index += 1) {
+    const x = a[index];
+    const y = b[index];
     dot += x * y;
-    na += x * x;
-    nb += y * y;
+    normA += x * x;
+    normB += y * y;
   }
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  return denom === 0 ? 0 : dot / denom;
+
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator === 0 ? 0 : dot / denominator;
 }
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as MemorySearchBody;
 
-  const q: string = String(body?.query || "").trim();
-  const scope: string = String(body?.scope || "project");
-  const scopeId: string = String(body?.scopeId || "default");
-  const topK: number = Number(body?.topK || 5);
+  const query = String(body.query ?? "").trim();
+  const scope = String(body.scope ?? "project");
+  const scopeId = String(body.scopeId ?? "default");
+  const topK = parseTopK(body.topK);
 
-  if (!q) {
+  if (!query) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
-  const qvec = await cohereQueryEmbedding(q);
+  const client = getClient();
+  if (!client) {
+    return NextResponse.json(
+      {
+        error:
+          "Memory search is unavailable. TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be configured.",
+      },
+      { status: 503 },
+    );
+  }
 
-  // MVP: luam candidati recenți din scope (limit 200) și calculăm cosine în app layer
-  const res = await client.execute({
+  const queryVector = await cohereEmbedding(query, "search_query");
+
+  const dbResult = await client.execute({
     sql: `
       SELECT
-        c.id as id,
-        c.kind as kind,
-        c.content as content,
-        c.created_at as created_at,
-        e.model as model,
-        e.dims as dims,
-        e.embedding as embedding
+        c.id AS id,
+        c.kind AS kind,
+        c.content AS content,
+        c.created_at AS created_at,
+        e.embedding AS embedding
       FROM memory_chunks c
       JOIN memory_embeddings e ON e.chunk_id = c.id
       WHERE c.scope = ? AND c.scope_id = ?
@@ -84,27 +110,34 @@ export async function POST(req: Request) {
     args: [scope, scopeId],
   });
 
-  const scored = res.rows
-    .map((r: any) => {
-      const emb: Uint8Array = r.embedding as Uint8Array;
-      const dvec = bytesToF32(emb);
-      return {
-        id: String(r.id),
-        kind: String(r.kind),
-        content: String(r.content),
-        createdAt: String(r.created_at),
-        score: cosine(qvec, dvec),
+  const scored = dbResult.rows
+    .map((row) => {
+      const typed = row as unknown as MemoryRow;
+      if (!(typed.embedding instanceof Uint8Array)) {
+        return null;
+      }
+
+      const docVector = bytesToFloat32(typed.embedding);
+
+      const item: ScoredResult = {
+        id: String(typed.id ?? ""),
+        kind: String(typed.kind ?? ""),
+        content: String(typed.content ?? ""),
+        createdAt: String(typed.created_at ?? ""),
+        score: cosineSimilarity(queryVector, docVector),
       };
+
+      return item;
     })
+    .filter((item): item is ScoredResult => item !== null)
     .sort((a, b) => b.score - a.score)
-    .slice(0, Math.max(1, Math.min(50, topK)));
+    .slice(0, topK);
 
   return NextResponse.json({
-    query: q,
+    query,
     scope,
     scopeId,
     topK,
     results: scored,
   });
 }
-

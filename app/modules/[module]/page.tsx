@@ -1,8 +1,9 @@
- "use client";
+"use client";
 
-import { useEffect, useState } from "react";
-import { skip, useMutation, useQuery } from "convex/react";
-import { api } from "convex/_generated/api";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import PromptInput from "./PromptInput";
 
 type Props = {
@@ -32,12 +33,13 @@ const PREMIUM_MODULES = new Set([
   "api-gateway",
 ]);
 
-export default async function ModulePage({ params }: Props) {
+export default function ModulePage({ params }: Props) {
   const moduleId = (params.module || "").toLowerCase();
   const isPremium = PREMIUM_MODULES.has(moduleId);
 
   const [isActive, setIsActive] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [projectSearch, setProjectSearch] = useState("");
@@ -45,40 +47,56 @@ export default async function ModulePage({ params }: Props) {
   const [showExport, setShowExport] = useState(false);
   const [importJson, setImportJson] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+
   const ownerId = "demo-owner";
   const actorId = ownerId;
+
   const createProject = useMutation(api.projects.createProject);
   const deleteProject = useMutation(api.projects.deleteProject);
   const addChangelog = useMutation(api.changelog.addChangelog);
   const importProjectJson = useMutation(api.projects.importProjectJson);
   const duplicateProject = useMutation(api.projects.duplicateProject);
+
   const projects = useQuery(api.projects.listProjects, { ownerId });
   const changelog = useQuery(api.changelog.listChangelog);
   const auditLogs = useQuery(api.audit.listAudit);
+
   const exportData = useQuery(
     api.projects.exportProjectJson,
-    selectedProjectId ? { projectId: selectedProjectId } : skip
+    selectedProjectId ? { projectId: selectedProjectId } : "skip",
   );
-  const filteredProjects =
-    projects === undefined
-      ? undefined
-      : projectSearch.trim() === ""
-        ? projects
-        : projects.filter((p) =>
-            p.name.toLowerCase().includes(projectSearch.trim().toLowerCase())
-          );
-  const sortedProjects =
-    filteredProjects === undefined
-      ? undefined
-      : [...filteredProjects].sort((a, b) =>
-          projectSort === "newest"
-            ? b.createdAt - a.createdAt
-            : a.createdAt - b.createdAt
-        );
 
-  useEffect(() => {
-    setShowExport(false);
-  }, [selectedProjectId]);
+  const sortedProjects = useMemo(() => {
+    if (projects === undefined) return undefined;
+
+    const filtered =
+      projectSearch.trim() === ""
+        ? projects
+        : projects.filter((project) =>
+            project.name.toLowerCase().includes(projectSearch.trim().toLowerCase()),
+          );
+
+    return [...filtered].sort((a, b) =>
+      projectSort === "newest" ? b.createdAt - a.createdAt : a.createdAt - b.createdAt,
+    );
+  }, [projectSearch, projectSort, projects]);
+
+  async function handleToggleModule() {
+    if (isToggling) return;
+
+    setIsToggling(true);
+    try {
+      const response = await fetch(`/api/modules/${moduleId}/toggle`, {
+        method: "POST",
+      });
+      const data = (await response.json()) as { active?: boolean };
+      setIsActive(Boolean(data.active));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsToggling(false);
+    }
+  }
 
   return (
     <div className="zaria-shell">
@@ -91,26 +109,21 @@ export default async function ModulePage({ params }: Props) {
             <h1 className="zaria-h1">
               {moduleId
                 .split("-")
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(" ")}
             </h1>
           </div>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setIsActive((current) => !current);
+          <button
+            className={isActive ? "zaria-btn zaria-btn-danger" : "zaria-btn zaria-btn-primary"}
+            type="button"
+            disabled={isToggling}
+            onClick={() => {
+              void handleToggleModule();
             }}
           >
-            <button
-              className={
-                isActive ? "zaria-btn zaria-btn-danger" : "zaria-btn zaria-btn-primary"
-              }
-              type="submit"
-            >
-              {isActive ? "Deactivate" : "Activate"}
-            </button>
-          </form>
+            {isToggling ? "Updating..." : isActive ? "Deactivate" : "Activate"}
+          </button>
         </div>
 
         <div className="zaria-module-body">
@@ -129,9 +142,7 @@ export default async function ModulePage({ params }: Props) {
           />
           <select
             value={projectSort}
-            onChange={(event) =>
-              setProjectSort(event.target.value as "newest" | "oldest")
-            }
+            onChange={(event) => setProjectSort(event.target.value as "newest" | "oldest")}
             style={{ marginBottom: 12 }}
           >
             <option value="newest">Newest first</option>
@@ -149,6 +160,7 @@ export default async function ModulePage({ params }: Props) {
           >
             Create project
           </button>
+
           {projects === undefined ? (
             <div style={{ marginBottom: 14 }}>Loading projects...</div>
           ) : projects.length === 0 ? (
@@ -156,16 +168,22 @@ export default async function ModulePage({ params }: Props) {
           ) : (
             <ul style={{ marginBottom: 14 }}>
               {(sortedProjects ?? []).map((project) => (
-                <li
-                  key={project.id}
-                  onClick={() => setSelectedProjectId(project.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  {project.name} — {project.status}
+                <li key={project.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProjectId(project.id);
+                      setShowExport(false);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {project.name} - {project.status}
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+
           <div className="zaria-result" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Import JSON</div>
             <textarea
@@ -180,13 +198,15 @@ export default async function ModulePage({ params }: Props) {
               disabled={isImporting || importJson.trim() === ""}
               onClick={async () => {
                 if (isImporting || importJson.trim() === "") return;
+
                 let parsed: unknown;
                 try {
                   parsed = JSON.parse(importJson);
-                } catch (error) {
+                } catch {
                   console.error("Invalid import payload");
                   return;
                 }
+
                 if (
                   !parsed ||
                   typeof parsed !== "object" ||
@@ -197,6 +217,7 @@ export default async function ModulePage({ params }: Props) {
                   console.error("Invalid import payload");
                   return;
                 }
+
                 setIsImporting(true);
                 try {
                   await importProjectJson({ payload: importJson, actorId });
@@ -211,12 +232,14 @@ export default async function ModulePage({ params }: Props) {
               Import
             </button>
           </div>
+
           {selectedProjectId && projects ? (
             (() => {
               const selectedProject = projects.find(
-                (project) => project.id === selectedProjectId
+                (project) => project.id === selectedProjectId,
               );
               if (!selectedProject) return null;
+
               return (
                 <div className="zaria-result" style={{ marginBottom: 14 }}>
                   <div>Project: {selectedProject.name}</div>
@@ -226,10 +249,7 @@ export default async function ModulePage({ params }: Props) {
                     className="zaria-btn zaria-btn-danger"
                     onClick={async () => {
                       if (!selectedProjectId) return;
-                      await deleteProject({
-                        projectId: selectedProjectId,
-                        actorId,
-                      });
+                      await deleteProject({ projectId: selectedProjectId, actorId });
                       setSelectedProjectId(null);
                     }}
                     type="button"
@@ -269,6 +289,7 @@ export default async function ModulePage({ params }: Props) {
               );
             })()
           ) : null}
+
           <div className="zaria-result" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Changelog</div>
             <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
@@ -285,6 +306,7 @@ export default async function ModulePage({ params }: Props) {
                 onClick={async () => {
                   const message = newMessage.trim();
                   if (isAdding || !message) return;
+
                   setIsAdding(true);
                   try {
                     await addChangelog({ message, actorId });
@@ -294,9 +316,10 @@ export default async function ModulePage({ params }: Props) {
                   }
                 }}
               >
-                {isAdding ? "Adding…" : "Add changelog"}
+                {isAdding ? "Adding..." : "Add changelog"}
               </button>
             </div>
+
             {changelog === undefined ? (
               <div>Loading changelog...</div>
             ) : changelog.length === 0 ? (
@@ -311,6 +334,7 @@ export default async function ModulePage({ params }: Props) {
               </ul>
             )}
           </div>
+
           <div className="zaria-result" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Audit Log</div>
             {auditLogs === undefined ? (
@@ -321,8 +345,8 @@ export default async function ModulePage({ params }: Props) {
               <ul>
                 {auditLogs.map((entry) => (
                   <li key={entry.id}>
-                    [{new Date(entry.createdAt).toLocaleString()}] {entry.action}{" "}
-                    {entry.entityType}:{entry.entityId} (actor: {entry.actorId})
+                    [{new Date(entry.createdAt).toLocaleString()}] {entry.action} {entry.entityType}:
+                    {entry.entityId} (actor: {entry.actorId})
                   </li>
                 ))}
               </ul>
@@ -335,7 +359,7 @@ export default async function ModulePage({ params }: Props) {
             from versioned blocks. No demos—production output.
           </p>
 
-          <PromptInput moduleId={params.module} />
+          <PromptInput key={moduleId} moduleId={moduleId} />
         </div>
       </div>
     </div>

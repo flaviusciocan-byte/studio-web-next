@@ -1,42 +1,54 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import AiDescription, { type AiDescriptionProps } from "./AiDescription";
 
 const PromptInput = memo(function PromptInput({
   moduleId,
 }: Pick<AiDescriptionProps, "moduleId">) {
-  const [prompt, setPrompt] = useState("");
+  const storageKey = useMemo(() => `zaria:prompt:${moduleId}`, [moduleId]);
+  const [prompt, setPrompt] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(`zaria:prompt:${moduleId}`) ?? "";
+  });
   const [autoSubmitKey, setAutoSubmitKey] = useState<number>(0);
   const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const wasLoadingRef = useRef<boolean>(false);
-  const storageKey = `zaria:prompt:${moduleId}`;
+
   const triggerSubmit = useCallback(() => {
     const normalizedPrompt = prompt.trim();
     if (normalizedPrompt === "") return;
     if (normalizedPrompt.length > 1000) return;
+
     const now = Date.now();
     if (now - lastSubmitAt < 500) return;
     if (isLoading) return;
+
     setLastSubmitAt(now);
     setAutoSubmitKey((k) => k + 1);
     setPrompt("");
-    localStorage.removeItem(storageKey);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(storageKey);
+    }
   }, [isLoading, lastSubmitAt, prompt, storageKey]);
+
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value),
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setPrompt(event.target.value);
+    },
     [],
   );
+
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
         triggerSubmit();
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
         triggerSubmit();
       }
     },
@@ -44,22 +56,9 @@ const PromptInput = memo(function PromptInput({
   );
 
   useEffect(() => {
-    const stored = localStorage.getItem(storageKey);
-    if (stored !== null) {
-      setPrompt(stored);
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey, prompt);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(storageKey, prompt);
   }, [prompt, storageKey]);
-
-  useEffect(() => {
-    if (wasLoadingRef.current && !isLoading) {
-      setPrompt("");
-    }
-    wasLoadingRef.current = isLoading;
-  }, [isLoading]);
 
   const isPromptEmpty = prompt.trim().length === 0;
 
@@ -87,7 +86,7 @@ const PromptInput = memo(function PromptInput({
           style={{ marginTop: 10 }}
           type="button"
         >
-        {isLoading ? "Generating…" : "Generate"}
+          {isLoading ? "Generating…" : "Generate"}
         </button>
       </div>
 
@@ -95,7 +94,7 @@ const PromptInput = memo(function PromptInput({
         moduleId={moduleId}
         prompt={prompt}
         autoSubmitKey={autoSubmitKey}
-        onLoadingChange={(v) => setIsLoading(v)}
+        onLoadingChange={setIsLoading}
       />
     </div>
   );

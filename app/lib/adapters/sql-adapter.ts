@@ -1,19 +1,20 @@
 import { createClient } from "@libsql/client";
-import { ProjectAdapter, ModuleState } from "../project-adapter";
+import type { ProjectAdapter, ModuleState } from "../project-adapter";
 
 const tursoUrl = process.env.TURSO_DATABASE_URL;
 const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-if (!tursoUrl || !tursoAuthToken) {
-  throw new Error("Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN");
-}
-
-const client = createClient({
-  url: tursoUrl,
-  authToken: tursoAuthToken,
-});
+const client =
+  tursoUrl && tursoAuthToken
+    ? createClient({
+        url: tursoUrl,
+        authToken: tursoAuthToken,
+      })
+    : null;
 
 async function ensureTable() {
+  if (!client) return;
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS project_modules (
       id TEXT PRIMARY KEY,
@@ -25,6 +26,10 @@ async function ensureTable() {
 
 export const SqlProjectAdapter: ProjectAdapter = {
   async getModule(id: string): Promise<ModuleState> {
+    if (!client) {
+      return { id, active: false };
+    }
+
     await ensureTable();
 
     const res = await client.execute({
@@ -43,6 +48,8 @@ export const SqlProjectAdapter: ProjectAdapter = {
   },
 
   async setModule(state: ModuleState): Promise<void> {
+    if (!client) return;
+
     await ensureTable();
 
     await client.execute({

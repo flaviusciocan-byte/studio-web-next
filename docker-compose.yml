@@ -1,0 +1,49 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: zaria_builder
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - zaria_pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/zaria_builder
+      PORT: 8080
+      JWT_SECRET: replace-with-strong-secret-32-characters-minimum
+      JWT_EXPIRES_IN: 12h
+      API_RATE_LIMIT_WINDOW_MS: 60000
+      API_RATE_LIMIT_MAX: 120
+      EXPORT_RATE_LIMIT_MAX: 20
+      CORS_ORIGIN: http://localhost:5173
+      STORAGE_PATH: /app/apps/api/storage
+      WEBHOOK_TIMEOUT_MS: 6000
+    ports:
+      - "8080:8080"
+    volumes:
+      - zaria_exports:/app/apps/api/storage
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    depends_on:
+      - api
+    ports:
+      - "5173:4173"
+
+volumes:
+  zaria_pgdata:
+  zaria_exports:
